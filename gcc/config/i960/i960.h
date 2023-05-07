@@ -1365,6 +1365,9 @@ extern struct rtx_def *i960_compare_op0, *i960_compare_op1;
 #define PROMOTE_RETURN		TARGET_CLEAN_LINKAGE
 #endif
 
+/* I want weak symbols! */
+#define SUPPORTS_WEAK 1
+
 /* Instruction type definitions.  Used to alternate instructions types for
    better performance on the C series chips.  */
 
