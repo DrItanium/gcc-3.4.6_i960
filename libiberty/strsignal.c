@@ -409,9 +409,8 @@ call to @code{strsignal}.
 
 #ifndef HAVE_STRSIGNAL
 
-const char *
-strsignal (signo)
-  int signo;
+char *
+strsignal (int signo)
 {
   const char *msg;
   static char buf[32];
@@ -557,9 +556,7 @@ followed by a newline.
 #ifndef HAVE_PSIGNAL
 
 void
-psignal (signo, message)
-  unsigned signo;
-  char *message;
+psignal (int signo, const char* message)
 {
   if (signal_names == NULL)
     {
