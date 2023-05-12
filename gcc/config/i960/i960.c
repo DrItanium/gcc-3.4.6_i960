@@ -564,9 +564,7 @@ i960_address_cost (x)
    normally.  */
 
 int
-emit_move_sequence (operands, mode)
-     rtx *operands;
-     enum machine_mode mode;
+emit_move_sequence (rtx* operands, enum machine_mode mode)
 {
   /* We can only store registers to memory.  */
   
@@ -585,13 +583,13 @@ emit_move_sequence (operands, mode)
   /* ??? We must also handle stores to pseudos here, because the pseudo may be
      replaced with a MEM later.  This would be cleaner if we didn't have
      a separate pattern for unaligned DImode/TImode stores.  */
-  if (GET_MODE_SIZE (mode) > UNITS_PER_WORD
+  if (GET_MODE_SIZE(mode) > UNITS_PER_WORD
       && (GET_CODE (operands[0]) == MEM
 	  || (GET_CODE (operands[0]) == REG
 	      && REGNO (operands[0]) >= FIRST_PSEUDO_REGISTER))
       && GET_CODE (operands[1]) == REG
       && REGNO (operands[1]) < FIRST_PSEUDO_REGISTER
-      && ! HARD_REGNO_MODE_OK (REGNO (operands[1]), mode))
+      && ! HARD_REGNO_MODE_OK(REGNO(operands[1]), mode))
     {
       emit_insn (gen_rtx_PARALLEL
 		 (VOIDmode,
@@ -622,15 +620,15 @@ i960_output_move_double (rtx dst, rtx src) {
                 return "mov	%1,%0\n\tmov	%D1,%D0";
             }
         } else {
-            return "movl	%1,%0 # movl 4";
+            return "movl	%1,%0 # m4";
         }
     } else if (GET_CODE (dst) == REG
             && GET_CODE (src) == CONST_INT
-            && CONST_OK_FOR_LETTER_P (INTVAL (src), 'I')) {
+            && CONST_OK_FOR_LETTER_P(INTVAL (src), 'I')) {
         if (REGNO (dst) & 1) {
-            return "mov	%1,%0\n\tmov	0,%D0";
+            return "mov	%1,%0\n\tmov	0,%D0 #m5.0";
         } else {
-            return "movl	%1,%0 # movl 5";
+            return "movl	%1,%0 #m5.1";
         }
     } else if (GET_CODE (dst) == REG
             && GET_CODE (src) == MEM) {
@@ -645,7 +643,7 @@ i960_output_move_double (rtx dst, rtx src) {
             operands[4] = adjust_address (operands[3], word_mode,
                     UNITS_PER_WORD);
             output_asm_insn
-                ("lda	%1,%2\n\tld	%3,%0\n\tld	%4,%D0", operands);
+                ("lda	%1,%2 #lda 1\n\tld	%3,%0\n\tld	%4,%D0", operands);
             return "";
         } else {
             return "ldl	%1,%0";
@@ -671,8 +669,7 @@ i960_output_move_double (rtx dst, rtx src) {
 /* Output assembler to move a double word zero.  */
 
 const char *
-i960_output_move_double_zero (dst)
-     rtx dst;
+i960_output_move_double_zero (rtx dst)
 {
   rtx operands[2];
 
@@ -687,89 +684,78 @@ i960_output_move_double_zero (dst)
 /* Output assembler to move a quad word value.  */
 
 const char *
-i960_output_move_quad (dst, src)
-     rtx dst, src;
+i960_output_move_quad (rtx dst, rtx src)
 {
   rtx operands[7];
 
-  if (GET_CODE (dst) == REG
-      && GET_CODE (src) == REG)
-    {
-      if ((REGNO (src) & 3)
-	  || (REGNO (dst) & 3))
-	{
-	  /* We normally copy starting with the low numbered register.
-	     However, if there is an overlap such that the first dest reg
-	     is <= the last source reg but not < the first source reg, we
-	     must copy in the opposite order.  */
-	  if (REGNO (dst) <= REGNO (src) + 3
-	      && REGNO (dst) >= REGNO (src))
-	    return "mov	%F1,%F0\n\tmov	%E1,%E0\n\tmov	%D1,%D0\n\tmov	%1,%0";
-	  else
-	    return "mov	%1,%0\n\tmov	%D1,%D0\n\tmov	%E1,%E0\n\tmov	%F1,%F0";
-	}
-      else
-	return "movq	%1,%0";
-    }
-  else if (GET_CODE (dst) == REG
-	   && GET_CODE (src) == CONST_INT
-	   && CONST_OK_FOR_LETTER_P (INTVAL (src), 'I'))
-    {
-      if (REGNO (dst) & 3)
-	return "mov	%1,%0\n\tmov	0,%D0\n\tmov	0,%E0\n\tmov	0,%F0";
-      else
-	return "movq	%1,%0";
-    }
-  else if (GET_CODE (dst) == REG
-	   && GET_CODE (src) == MEM)
-    {
-      if (REGNO (dst) & 3)
-	{
-	  /* One can optimize a few cases here, but you have to be
-	     careful of clobbering registers used in the address and
-	     edge conditions.  */
-	  operands[0] = dst;
-	  operands[1] = src;
-	  operands[2] = gen_rtx_REG (Pmode, REGNO (dst) + 3);
-	  operands[3] = gen_rtx_MEM (word_mode, operands[2]);
-	  operands[4]
-	    = adjust_address (operands[3], word_mode, UNITS_PER_WORD);
-	  operands[5]
-	    = adjust_address (operands[4], word_mode, UNITS_PER_WORD);
-	  operands[6]
-	    = adjust_address (operands[5], word_mode, UNITS_PER_WORD);
-	  output_asm_insn ("lda	%1,%2\n\tld	%3,%0\n\tld	%4,%D0\n\tld	%5,%E0\n\tld	%6,%F0", operands);
-	  return "";
-	}
-      else
-	return "ldq	%1,%0";
-    }
-  else if (GET_CODE (dst) == MEM
-	   && GET_CODE (src) == REG)
-    {
-      if (REGNO (src) & 3)
-	{
-	  operands[0] = dst;
-	  operands[1] = adjust_address (dst, word_mode, UNITS_PER_WORD);
-	  operands[2] = adjust_address (dst, word_mode, 2 * UNITS_PER_WORD);
-	  operands[3] = adjust_address (dst, word_mode, 3 * UNITS_PER_WORD);
-	  if (! memory_address_p (word_mode, XEXP (operands[3], 0)))
-	    abort ();
-	  operands[4] = src;
-	  output_asm_insn ("st	%4,%0\n\tst	%D4,%1\n\tst	%E4,%2\n\tst	%F4,%3", operands);
-	  return "";
-	}
+  if (GET_CODE (dst) == REG && GET_CODE (src) == REG) {
+      if ((REGNO (src) & 3) || (REGNO (dst) & 3)) {
+          /* We normally copy starting with the low numbered register.
+             However, if there is an overlap such that the first dest reg
+             is <= the last source reg but not < the first source reg, we
+             must copy in the opposite order.  */
+          if (REGNO (dst) <= REGNO (src) + 3
+                  && REGNO (dst) >= REGNO (src)) {
+              return "mov	%F1,%F0\n\tmov	%E1,%E0\n\tmov	%D1,%D0\n\tmov	%1,%0";
+          } else {
+              return "mov	%1,%0\n\tmov	%D1,%D0\n\tmov	%E1,%E0\n\tmov	%F1,%F0";
+          }
+      } else {
+          return "movq	%1,%0";
+      }
+  } else if (GET_CODE (dst) == REG
+          && GET_CODE (src) == CONST_INT
+          && CONST_OK_FOR_LETTER_P (INTVAL (src), 'I')) {
+      if (REGNO (dst) & 3) {
+          return "mov	%1,%0\n\tmov	0,%D0\n\tmov	0,%E0\n\tmov	0,%F0";
+      } else {
+          return "movq	%1,%0";
+      }
+  } else if (GET_CODE (dst) == REG && GET_CODE (src) == MEM) {
+      if (REGNO (dst) & 3) {
+          /* One can optimize a few cases here, but you have to be
+             careful of clobbering registers used in the address and
+             edge conditions.  */
+          operands[0] = dst;
+          operands[1] = src;
+          operands[2] = gen_rtx_REG (Pmode, REGNO (dst) + 3);
+          operands[3] = gen_rtx_MEM (word_mode, operands[2]);
+          operands[4]
+              = adjust_address (operands[3], word_mode, UNITS_PER_WORD);
+          operands[5]
+              = adjust_address (operands[4], word_mode, UNITS_PER_WORD);
+          operands[6]
+              = adjust_address (operands[5], word_mode, UNITS_PER_WORD);
+          output_asm_insn ("lda	%1,%2 #lda2\n\tld	%3,%0\n\tld	%4,%D0\n\tld	%5,%E0\n\tld	%6,%F0", operands);
+          return "";
+      } else {
+          return "ldq	%1,%0";
+      }
+  } else if (GET_CODE (dst) == MEM
+          && GET_CODE (src) == REG) {
+      if (REGNO (src) & 3) {
+          operands[0] = dst;
+          operands[1] = adjust_address (dst, word_mode, UNITS_PER_WORD);
+          operands[2] = adjust_address (dst, word_mode, 2 * UNITS_PER_WORD);
+          operands[3] = adjust_address (dst, word_mode, 3 * UNITS_PER_WORD);
+          if (! memory_address_p (word_mode, XEXP (operands[3], 0))) {
+              abort ();
+          }
+          operands[4] = src;
+          output_asm_insn ("st	%4,%0\n\tst	%D4,%1\n\tst	%E4,%2\n\tst	%F4,%3", operands);
+          return "";
+      }
       return "stq	%1,%0";
-    }
-  else
-    abort ();
+  } else {
+      abort ();
+  }
+  return "";
 }
 
 /* Output assembler to move a quad word zero.  */
 
 const char *
-i960_output_move_quad_zero (dst)
-     rtx dst;
+i960_output_move_quad_zero (rtx dst)
 {
   rtx operands[4];
 
@@ -788,11 +774,10 @@ i960_output_move_quad_zero (dst)
    Uses several strategies to try to use as few insns as possible.  */
 
 const char *
-i960_output_ldconst (dst, src)
-     register rtx dst, src;
+i960_output_ldconst (rtx dst, rtx src)
 {
-  register int rsrc1;
-  register unsigned rsrc2;
+  int rsrc1;
+  unsigned int rsrc2;
   enum machine_mode mode = GET_MODE (dst);
   rtx operands[4];
 
@@ -804,7 +789,7 @@ i960_output_ldconst (dst, src)
 
   if (GET_CODE (src) != CONST_INT && GET_CODE (src) != CONST_DOUBLE)
     {
-      output_asm_insn ("ldconst	%1,%0", operands);
+      output_asm_insn ("ldconst	%1,%0 # ldconst 10", operands);
       return "";
     }
   else if (mode == TFmode)
@@ -813,13 +798,13 @@ i960_output_ldconst (dst, src)
       long value_long[3];
       int i;
 
-      if (fp_literal_zero (src, TFmode))
-	return "movt	0,%0";
+      if (fp_literal_zero (src, TFmode))  
+          return "movt	0,%0 #ldconst 11";
 
       REAL_VALUE_FROM_CONST_DOUBLE (d, src);
       REAL_VALUE_TO_TARGET_LONG_DOUBLE (d, value_long);
 
-      output_asm_insn ("# ldconst	%1,%0",operands);
+      output_asm_insn ("# ldconst	%1,%0 # ldconst 12",operands);
 
       for (i = 0; i < 3; i++)
 	{
@@ -836,11 +821,11 @@ i960_output_ldconst (dst, src)
       rtx first, second;
 
       if (fp_literal_zero (src, DFmode))
-	return "movl	0,%0 # movl 6";
+          return "movl	0,%0 # movl 6";
 
       split_double (src, &first, &second);
 
-      output_asm_insn ("# ldconst	%1,%0",operands);
+      output_asm_insn ("# ldconst	%1,%0 # ldconst13",operands);
 
       operands[0] = gen_rtx_REG (SImode, REGNO (dst));
       operands[1] = first;
@@ -860,7 +845,7 @@ i960_output_ldconst (dst, src)
       REAL_VALUE_FROM_CONST_DOUBLE (d, src);
       REAL_VALUE_TO_TARGET_SINGLE (d, value);
 
-      output_asm_insn ("# ldconst	%1,%0",operands);
+      output_asm_insn ("# ldconst	%1,%0 # ldconst14",operands);
       operands[0] = gen_rtx_REG (SImode, REGNO (dst));
       operands[1] = GEN_INT (value);
       output_asm_insn (i960_output_ldconst (operands[0], operands[1]),
@@ -880,63 +865,65 @@ i960_output_ldconst (dst, src)
 	output_asm_insn ("movq\t0,%0\t# ldconstq %1,%0",operands);
       /* Go pick up the low-order word.  */
     }
-  else if (mode == DImode)
-    {
+  else if (mode == DImode) {
       rtx upperhalf, lowerhalf, xoperands[2];
 
-      if (GET_CODE (src) == CONST_DOUBLE || GET_CODE (src) == CONST_INT)
- 	split_double (src, &lowerhalf, &upperhalf);
-
-      else
-	abort ();
+      if (GET_CODE (src) == CONST_DOUBLE || GET_CODE (src) == CONST_INT) {
+          split_double (src, &lowerhalf, &upperhalf);
+      } else {
+          abort ();
+      }
 
       /* Note: lowest order word goes in lowest numbered reg.  */
       /* Numbers from 0 to 31 can be handled with a single insn.  */
       rsrc1 = INTVAL (lowerhalf);
-      if (upperhalf == const0_rtx && rsrc1 >= 0 && rsrc1 < 32)
-	return "movl	%1,%0 # movl 7";
+      if (upperhalf == const0_rtx && rsrc1 >= 0 && rsrc1 < 32) {
+          return "movl	%1,%0 #m7";
+      }
 
+      /* emit the lower half with a recursive call (we don't want to fight with this ever!) */
+      xoperands[0] = gen_rtx_REG(SImode, REGNO(dst));
+      xoperands[1] = lowerhalf;
+      //return "mov %D1,%0 # ldconst 20";
+      output_asm_insn (i960_output_ldconst(xoperands[0], xoperands[1]), xoperands);
       /* Output the upper half with a recursive call.  */
       xoperands[0] = gen_rtx_REG (SImode, REGNO (dst) + 1);
       xoperands[1] = upperhalf;
       output_asm_insn (i960_output_ldconst (xoperands[0], xoperands[1]),
 		       xoperands);
-      /* The lower word is emitted as normally.  */
-    }
-  else
-    {
+      return "";
+  } else {
       rsrc1 = INTVAL (src);
-      if (mode == QImode)
-	{
-	  if (rsrc1 > 0xff)
-	    rsrc1 &= 0xff;
-	}
-      else if (mode == HImode)
-	{
-	  if (rsrc1 > 0xffff)
-	    rsrc1 &= 0xffff;
-	}
-    }
+      if (mode == QImode) {
+          if (rsrc1 > 0xff) {
+              rsrc1 &= 0xff;
+          }
+      } else if (mode == HImode) {
+          if (rsrc1 > 0xffff) {
+              rsrc1 &= 0xffff;
+          }
+      }
+  }
 
-  if (rsrc1 >= 0)
-    {
+  if (rsrc1 >= 0) {
       /* ldconst	0..31,X		-> 	mov	0..31,X  */
-      if (rsrc1 < 32)
-	{
-	  if (i960_last_insn_type == I_TYPE_REG && TARGET_C_SERIES)
-	    return "lda	%1,%0";
-	  return "mov	%1,%0";
-	}
+      if (rsrc1 < 32) {
+          if (i960_last_insn_type == I_TYPE_REG && TARGET_C_SERIES) {
+              return "lda	%1,%0";
+          } else {
+              return "mov	%1,%0";
+          }
+      }
 
       /* ldconst	32..63,X	->	add	31,nn,X  */
-      if (rsrc1 < 63)
-	{
-	  if (i960_last_insn_type == I_TYPE_REG && TARGET_C_SERIES)
-	    return "lda	%1,%0";
-	  operands[1] = GEN_INT (rsrc1 - 31);
-	  output_asm_insn ("addo\t31,%1,%0\t# ldconst %3,%0", operands);
-	  return "";
-	}
+      if (rsrc1 < 63) {
+          if (i960_last_insn_type == I_TYPE_REG && TARGET_C_SERIES) {
+              return "lda	%1,%0";
+          }
+          operands[1] = GEN_INT (rsrc1 - 31);
+          output_asm_insn ("addo\t31,%1,%0\t# ldconst %3,%0", operands);
+          return "";
+      }
     }
   else if (rsrc1 < 0)
     {
@@ -945,7 +932,7 @@ i960_output_ldconst (dst, src)
 	{
 	  /* return 'sub -(%1),0,%0' */
 	  operands[1] = GEN_INT (- rsrc1);
-	  output_asm_insn ("subo\t%1,0,%0\t# ldconst %3,%0", operands);
+	  output_asm_insn ("subo\t%1,0,%0\t# ldconst %3,%0 # ldconst 40", operands);
 	  return "";
 	}
       
@@ -953,7 +940,7 @@ i960_output_ldconst (dst, src)
       if (rsrc1 == -32)
 	{
 	  operands[1] = GEN_INT (~rsrc1);
-	  output_asm_insn ("not\t%1,%0	# ldconst %3,%0", operands);
+	  output_asm_insn ("not\t%1,%0	# ldconst %3,%0 # ldconst 50", operands);
 	  return "";
 	}
     }
@@ -962,7 +949,7 @@ i960_output_ldconst (dst, src)
   if (bitpos (rsrc1) >= 0)
     {
       operands[1] = GEN_INT (bitpos (rsrc1));
-      output_asm_insn ("setbit\t%1,0,%0\t# ldconst %3,%0", operands);
+      output_asm_insn ("setbit\t%1,0,%0\t# ldconst %3,%0 # ldconst 60", operands);
       return "";
     }
 
@@ -976,7 +963,7 @@ i960_output_ldconst (dst, src)
 	  rsrc2 = ((unsigned int) rsrc1) >> s;
 	  operands[1] = GEN_INT (rsrc2);
 	  operands[2] = GEN_INT (s);
-	  output_asm_insn ("shlo\t%2,%1,%0\t# ldconst %3,%0", operands);
+	  output_asm_insn ("shlo\t%2,%1,%0\t# ldconst %3,%0 # ldconst 70", operands);
 	  return "";
 	}
     }
@@ -986,9 +973,10 @@ i960_output_ldconst (dst, src)
      ror	31,3,g0	-> ldconst 0xe0000003,g0
    
      and any 2 instruction cases that might be worthwhile  */
-  
-  output_asm_insn ("ldconst	%1,%0", operands);
-  return "";
+
+    return "ldconst %1, %0 #ldconst 80";
+  //output_asm_insn ("ldconst	%1,%0 # ldconst 80", operands);
+  //return "";
 }
 
 /* Determine if there is an opportunity for a bypass optimization.
@@ -1002,11 +990,9 @@ i960_output_ldconst (dst, src)
    OP1 and OP2 are the two source operands of a 3 operand insn.  */
 
 int
-i960_bypass (insn, op1, op2, cmpbr_flag)
-     register rtx insn, op1, op2;
-     int cmpbr_flag;
+i960_bypass (rtx insn, rtx op1, rtx op2, int cmpbr_flag)
 {
-  register rtx prev_insn, prev_dest;
+  rtx prev_insn, prev_dest;
 
   if (TARGET_C_SERIES)
     return 0;
@@ -1039,12 +1025,9 @@ i960_bypass (insn, op1, op2, cmpbr_flag)
    global variables.  */
 
 void
-i960_function_name_declare (file, name, fndecl)
-     FILE *file;
-     const char *name;
-     tree fndecl;
+i960_function_name_declare (FILE* file, const char* name, tree fndecl)
 {
-  register int i, j;
+  int i, j;
   int leaf_proc_ok;
   rtx insn;
 
@@ -1176,7 +1159,7 @@ i960_function_name_declare (file, name, fndecl)
       assemble_name (file, name);
       fprintf (file, ",%s.lf\n", (name[0] == '*' ? &name[1] : name));
       ASM_OUTPUT_LABEL (file, name);
-      fprintf (file, "\tlda    .Li960R%d,g14\n", ret_label);
+      fprintf (file, "\tlda    .Li960R%d,g14 #lda4\n", ret_label);
       fprintf (file, "%s.lf:\n", (name[0] == '*' ? &name[1] : name));
       fprintf (file, "\tmov    g14,g%d\n", i960_leaf_ret_reg);
 
@@ -1201,8 +1184,7 @@ i960_function_name_declare (file, name, fndecl)
 /* Compute and return the frame size.  */
 
 int
-compute_frame_size (size)
-     int size;
+compute_frame_size (int size)
 {
   int actual_fsize;
   int outgoing_args_size = current_function_outgoing_args_size;
@@ -1234,12 +1216,7 @@ static void i960_arg_size_and_align (enum machine_mode, tree, int *, int *);
    registers in range [start, finish_reg).  The function returns the
    number of groups formed.  */
 static int
-i960_form_reg_groups (start_reg, finish_reg, regs, state, reg_groups)
-     int start_reg;
-     int finish_reg;
-     int *regs;
-     int state;
-     struct reg_group *reg_groups;
+i960_form_reg_groups (int start_reg, int finish_reg, int* regs, int state, struct reg_group* reg_groups)
 {
   int i;
   int nw = 0;
@@ -1268,9 +1245,7 @@ i960_form_reg_groups (start_reg, finish_reg, regs, state, reg_groups)
 
 /* We sort register winodws in descending order by length.  */
 static int
-i960_reg_group_compare (group1, group2)
-     const void *group1;
-     const void *group2;
+i960_reg_group_compare (const void* group1, const void* group2)
 {
   const struct reg_group *w1 = group1;
   const struct reg_group *w2 = group2;
@@ -1287,10 +1262,7 @@ i960_reg_group_compare (group1, group2)
    which will contain SUBGROUP_LENGTH registers.  The function
    returns new number of winodws.  */
 static int
-i960_split_reg_group (reg_groups, nw, subgroup_length)
-     struct reg_group *reg_groups;
-     int nw;
-     int subgroup_length;
+i960_split_reg_group (struct reg_group* reg_groups, int nw, int subgroup_length)
 {
   if (subgroup_length < reg_groups->length - subgroup_length)
     /* This guarantees correct alignments of the two subgroups for
@@ -1312,11 +1284,9 @@ i960_split_reg_group (reg_groups, nw, subgroup_length)
 /* Output code for the function prologue.  */
 
 static void
-i960_output_function_prologue (file, size)
-     FILE *file;
-     HOST_WIDE_INT size;
+i960_output_function_prologue (FILE* file, HOST_WIDE_INT size)
 {
-  register int i, j, nr;
+  int i, j, nr;
   int n_saved_regs = 0;
   int n_remaining_saved_regs;
   HOST_WIDE_INT lvar_size;
@@ -1421,8 +1391,8 @@ i960_output_function_prologue (file, size)
   if (current_function_limit_stack)
     {
       rtx min_stack = stack_limit_rtx;
-      if (actual_fsize != 0)
-	min_stack = plus_constant (stack_limit_rtx, -actual_fsize);
+      if (actual_fsize != 0) 
+          min_stack = plus_constant (stack_limit_rtx, -actual_fsize);
 
       /* Now, emulate a little bit of reload.  We want to turn 'min_stack'
 	 into an arith_operand.  Use register 20 as the temporary.  */
@@ -1432,29 +1402,26 @@ i960_output_function_prologue (file, size)
 	  rtx tmp = gen_rtx_MEM (Pmode, min_stack);
 	  fputs ("\tlda\t", file);
 	  i960_print_operand (file, tmp, 0);
-	  fputs (",r4\n", file);
+	  fputs (",r4 #lda5\n", file);
 	  min_stack = gen_rtx_REG (Pmode, 20);
 	}
-      if (arith_operand (min_stack, Pmode))
-	{
-	  fputs ("\tcmpo\tsp,", file);
-	  i960_print_operand (file, min_stack, 0);
-	  fputs ("\n\tfaultge.f\n", file);
-	}
-      else
-	warning ("stack limit expression is not supported");
+      if (arith_operand (min_stack, Pmode)) {
+          fputs ("\tcmpo\tsp,", file);
+          i960_print_operand (file, min_stack, 0);
+          fputs ("\n\tfaultge.f\n", file);
+      } else {
+          warning ("stack limit expression is not supported");
+      }
     }
 
   /* Allocate space for register save and locals.  */
-  if (actual_fsize > 0)
-    {
-      if (actual_fsize < 32)
-	fprintf (file, "\taddo	" HOST_WIDE_INT_PRINT_DEC ",sp,sp\n",
-		 actual_fsize);
-      else
-	fprintf (file, "\tlda\t" HOST_WIDE_INT_PRINT_DEC "(sp),sp\n",
-		 actual_fsize);
-    }
+  if (actual_fsize > 0) {
+      if (actual_fsize < 32) {
+          fprintf (file, "\taddo	" HOST_WIDE_INT_PRINT_DEC ",sp,sp\n", actual_fsize);
+      } else {
+          fprintf(file, "\tlda\t" HOST_WIDE_INT_PRINT_DEC "(sp),sp #lda6\n", actual_fsize);
+      }
+  }
 
   /* Take hardware register save area created by the call instruction
      into account, but store them before the argument block area.  */
@@ -1515,9 +1482,7 @@ i960_output_function_prologue (file, size)
 /* Output code for the function profiler.  */
 
 void
-output_function_profiler (file, labelno)
-     FILE *file;
-     int labelno;
+output_function_profiler (FILE* file, int labelno)
 {
   /* The last used parameter register.  */
   int last_parm_reg;
@@ -1594,9 +1559,7 @@ output_function_profiler (file, labelno)
 /* Output code for the function epilogue.  */
 
 static void
-i960_output_function_epilogue (file, size)
-     FILE *file;
-     HOST_WIDE_INT size ATTRIBUTE_UNUSED;
+i960_output_function_epilogue (FILE* file, HOST_WIDE_INT size ATTRIBUTE_UNUSED)
 {
   if (i960_leaf_ret_reg >= 0)
     {
@@ -1606,11 +1569,11 @@ i960_output_function_epilogue (file, size)
 
   if (*epilogue_string == 0)
     {
-      register rtx tmp;
+      //rtx tmp;
 	
       /* Emit a return insn, but only if control can fall through to here.  */
 
-      tmp = get_last_insn ();
+      rtx tmp = get_last_insn ();
       while (tmp)
 	{
 	  if (GET_CODE (tmp) == BARRIER)
@@ -1673,7 +1636,7 @@ i960_output_call_insn (target, argsize_rtx, arg_pointer, insn)
     output_asm_insn ("mov	g14,r3", operands);
 
   if (argsize > 48)
-    output_asm_insn ("lda	%a1,g14", operands);
+    output_asm_insn ("lda	%a1,g14 #lda8", operands);
   else if (current_function_args_size != 0 || varargs_stdarg_function)
     output_asm_insn ("mov	0,g14", operands);
 
@@ -1709,8 +1672,7 @@ i960_output_call_insn (target, argsize_rtx, arg_pointer, insn)
 /* Output code for a return insn.  */
 
 const char *
-i960_output_ret_insn (insn)
-     register rtx insn;
+i960_output_ret_insn (rtx insn)
 {
   static char lbuf[20];
   
@@ -1740,10 +1702,7 @@ i960_output_ret_insn (insn)
 /* Print the operand represented by rtx X formatted by code CODE.  */
 
 void
-i960_print_operand (file, x, code)
-     FILE *file;
-     rtx x;
-     int code;
+i960_print_operand (FILE* file, rtx x, int code)
 {
   enum rtx_code rtxcode = x ? GET_CODE (x) : NIL;
 
@@ -2031,10 +1990,7 @@ i960_print_operand_addr (file, addr)
 	   : REG_OK_FOR_INDEX_P (SUBREG_REG (X)))))
 
 int
-legitimate_address_p (mode, addr, strict)
-     enum machine_mode mode ATTRIBUTE_UNUSED;
-     register rtx addr;
-     int strict;
+legitimate_address_p (enum machine_mode mode ATTRIBUTE_UNUSED, rtx addr, int strict)
 {
   if (RTX_OK_FOR_BASE_P (addr, strict))
     return 1;
@@ -2181,9 +2137,7 @@ legitimize_address (x, oldx, mode)
    objects of size SIZE and known alignment ALIGN as having.  */
    
 int
-i960_alignment (size, align)
-     int size;
-     int align;
+i960_alignment (int size, int align)
 {
   int i;
 
@@ -2257,9 +2211,7 @@ hard_regno_mode_ok (regno, mode)
    is always 16 byte aligned.  */
 
 int
-i960_expr_alignment (x, size)
-     rtx x;
-     int size;
+i960_expr_alignment (rtx x, int size)
 {
   int align = 1;
 
@@ -2327,10 +2279,7 @@ i960_expr_alignment (x, size)
    for an object of size SIZE.  */
 
 int
-i960_improve_align (base, offset, size)
-     rtx base;
-     rtx offset;
-     int size;
+i960_improve_align (rtx base, rtx offset, int size)
 {
   int i, j;
 
@@ -2356,9 +2305,7 @@ i960_improve_align (base, offset, size)
    (SImode) alignment as if they had 16 byte (TImode) alignment.  */
 
 int
-i960_si_ti (base, offset)
-     rtx base;
-     rtx offset;
+i960_si_ti (rtx base, rtx offset)
 {
   return i960_improve_align (base, offset, 16);
 }
@@ -2367,9 +2314,7 @@ i960_si_ti (base, offset)
    (SImode) alignment as if they had 8 byte (DImode) alignment.  */
 
 int
-i960_si_di (base, offset)
-     rtx base;
-     rtx offset;
+i960_si_di (rtx base, rtx offset)
 {
   return i960_improve_align (base, offset, 8);
 }
@@ -2378,11 +2323,7 @@ i960_si_di (base, offset)
    type being accessed.  These values will be rounded by the caller.  */
 
 static void 
-i960_arg_size_and_align (mode, type, size_out, align_out)
-     enum machine_mode mode;
-     tree type;
-     int *size_out;
-     int *align_out;
+i960_arg_size_and_align (enum machine_mode mode, tree type, int* size_out, int* align_out)
 {
   int size, align;
 
@@ -2391,24 +2332,25 @@ i960_arg_size_and_align (mode, type, size_out, align_out)
      and the parm has to be of scalar type.  In this case, consider its
      formal alignment requirement to be its size in words.  */
 
-  if (mode == BLKmode)
-    size = (int_size_in_bytes (type) + UNITS_PER_WORD - 1) / UNITS_PER_WORD;
-  else if (mode == VOIDmode)
-    {
+  if (mode == BLKmode) {
+      size = ((int_size_in_bytes (type) + UNITS_PER_WORD - 1)) / UNITS_PER_WORD;
+  } else if (mode == VOIDmode) {
       /* End of parm list.  */
-      if (type == 0 || TYPE_MODE (type) != VOIDmode)
-	abort ();
+      if (type == 0 || TYPE_MODE (type) != VOIDmode) {
+          abort ();
+      }
       size = 1;
-    }
-  else
-    size = (GET_MODE_SIZE (mode) + UNITS_PER_WORD - 1) / UNITS_PER_WORD;
+  } else {
+      size = ((GET_MODE_SIZE (mode) + UNITS_PER_WORD - 1)) / UNITS_PER_WORD;
+  }
 
-  if (type == 0)
-    align = size;
-  else if (TYPE_ALIGN (type) >= BITS_PER_WORD)
-    align = TYPE_ALIGN (type) / BITS_PER_WORD;
-  else
-    align = 1;
+  if (type == 0) {
+      align = size;
+  } else if (TYPE_ALIGN (type) >= BITS_PER_WORD) {
+      align = TYPE_ALIGN (type) / BITS_PER_WORD;
+  } else {
+      align = 1;
+  }
 
   *size_out  = size;
   *align_out = align;
@@ -2426,14 +2368,9 @@ i960_arg_size_and_align (mode, type, size_out, align_out)
 /* Update CUM to advance past an argument described by MODE and TYPE.  */
 
 void
-i960_function_arg_advance (cum, mode, type, named)
-     CUMULATIVE_ARGS *cum;
-     enum machine_mode mode;
-     tree type;
-     int named ATTRIBUTE_UNUSED;
+i960_function_arg_advance (CUMULATIVE_ARGS* cum, enum machine_mode mode, tree type, int named ATTRIBUTE_UNUSED)
 {
   int size, align;
-
   i960_arg_size_and_align (mode, type, &size, &align);
 
   if (size > 4 || cum->ca_nstackparms != 0
