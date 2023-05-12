@@ -608,75 +608,64 @@ emit_move_sequence (operands, mode)
 /* Output assembler to move a double word value.  */
 
 const char *
-i960_output_move_double (dst, src)
-     rtx dst, src;
-{
-  rtx operands[5];
+i960_output_move_double (rtx dst, rtx src) {
+    rtx operands[5];
 
-  if (GET_CODE (dst) == REG
-      && GET_CODE (src) == REG)
-    {
-      if ((REGNO (src) & 1)
-	  || (REGNO (dst) & 1))
-	{
-	  /* We normally copy the low-numbered register first.  However, if
-	     the second source register is the same as the first destination
-	     register, we must copy in the opposite order.  */
-	  if (REGNO (src) + 1 == REGNO (dst))
-	    return "mov	%D1,%D0\n\tmov	%1,%0";
-	  else
-	    return "mov	%1,%0\n\tmov	%D1,%D0";
-	}
-      else
-	return "movl	%1,%0";
+    if (GET_CODE (dst) == REG && GET_CODE (src) == REG) {
+        if ((REGNO (src) & 1) || (REGNO (dst) & 1)) {
+            /* We normally copy the low-numbered register first.  However, if
+               the second source register is the same as the first destination
+               register, we must copy in the opposite order.  */
+            if (REGNO (src) + 1 == REGNO (dst)) {
+                return "mov	%D1,%D0\n\tmov	%1,%0";
+            } else {
+                return "mov	%1,%0\n\tmov	%D1,%D0";
+            }
+        } else {
+            return "movl	%1,%0 # movl 4";
+        }
+    } else if (GET_CODE (dst) == REG
+            && GET_CODE (src) == CONST_INT
+            && CONST_OK_FOR_LETTER_P (INTVAL (src), 'I')) {
+        if (REGNO (dst) & 1) {
+            return "mov	%1,%0\n\tmov	0,%D0";
+        } else {
+            return "movl	%1,%0 # movl 5";
+        }
+    } else if (GET_CODE (dst) == REG
+            && GET_CODE (src) == MEM) {
+        if (REGNO (dst) & 1) {
+            /* One can optimize a few cases here, but you have to be
+               careful of clobbering registers used in the address and
+               edge conditions.  */
+            operands[0] = dst;
+            operands[1] = src;
+            operands[2] = gen_rtx_REG (Pmode, REGNO (dst) + 1);
+            operands[3] = gen_rtx_MEM (word_mode, operands[2]);
+            operands[4] = adjust_address (operands[3], word_mode,
+                    UNITS_PER_WORD);
+            output_asm_insn
+                ("lda	%1,%2\n\tld	%3,%0\n\tld	%4,%D0", operands);
+            return "";
+        } else {
+            return "ldl	%1,%0";
+        }
+    } else if (GET_CODE (dst) == MEM && GET_CODE (src) == REG) {
+        if (REGNO (src) & 1) {
+            operands[0] = dst;
+            operands[1] = adjust_address (dst, word_mode, UNITS_PER_WORD);
+            if (! memory_address_p (word_mode, XEXP (operands[1], 0))) {
+                abort ();
+            }
+            operands[2] = src;
+            output_asm_insn ("st	%2,%0\n\tst	%D2,%1", operands);
+            return "";
+        }
+        return "stl	%1,%0";
+    } else {
+        abort ();
     }
-  else if (GET_CODE (dst) == REG
-	   && GET_CODE (src) == CONST_INT
-	   && CONST_OK_FOR_LETTER_P (INTVAL (src), 'I'))
-    {
-      if (REGNO (dst) & 1)
-	return "mov	%1,%0\n\tmov	0,%D0";
-      else
-	return "movl	%1,%0";
-    }
-  else if (GET_CODE (dst) == REG
-	   && GET_CODE (src) == MEM)
-    {
-      if (REGNO (dst) & 1)
-	{
-	  /* One can optimize a few cases here, but you have to be
-	     careful of clobbering registers used in the address and
-	     edge conditions.  */
-	  operands[0] = dst;
-	  operands[1] = src;
-	  operands[2] = gen_rtx_REG (Pmode, REGNO (dst) + 1);
-	  operands[3] = gen_rtx_MEM (word_mode, operands[2]);
-	  operands[4] = adjust_address (operands[3], word_mode,
-					UNITS_PER_WORD);
-	  output_asm_insn
-	    ("lda	%1,%2\n\tld	%3,%0\n\tld	%4,%D0", operands);
-	  return "";
-	}
-      else
-	return "ldl	%1,%0";
-    }
-  else if (GET_CODE (dst) == MEM
-	   && GET_CODE (src) == REG)
-    {
-      if (REGNO (src) & 1)
-	{
-	  operands[0] = dst;
-	  operands[1] = adjust_address (dst, word_mode, UNITS_PER_WORD);
-	  if (! memory_address_p (word_mode, XEXP (operands[1], 0)))
-	    abort ();
-	  operands[2] = src;
-	  output_asm_insn ("st	%2,%0\n\tst	%D2,%1", operands);
-	  return "";
-	}
-      return "stl	%1,%0";
-    }
-  else
-    abort ();
+    return "";
 }
 
 /* Output assembler to move a double word zero.  */
@@ -847,7 +836,7 @@ i960_output_ldconst (dst, src)
       rtx first, second;
 
       if (fp_literal_zero (src, DFmode))
-	return "movl	0,%0";
+	return "movl	0,%0 # movl 6";
 
       split_double (src, &first, &second);
 
@@ -905,7 +894,7 @@ i960_output_ldconst (dst, src)
       /* Numbers from 0 to 31 can be handled with a single insn.  */
       rsrc1 = INTVAL (lowerhalf);
       if (upperhalf == const0_rtx && rsrc1 >= 0 && rsrc1 < 32)
-	return "movl	%1,%0";
+	return "movl	%1,%0 # movl 7";
 
       /* Output the upper half with a recursive call.  */
       xoperands[0] = gen_rtx_REG (SImode, REGNO (dst) + 1);
