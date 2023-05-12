@@ -1187,7 +1187,7 @@ i960_function_name_declare (file, name, fndecl)
       assemble_name (file, name);
       fprintf (file, ",%s.lf\n", (name[0] == '*' ? &name[1] : name));
       ASM_OUTPUT_LABEL (file, name);
-      fprintf (file, "\tlda    Li960R%d,g14\n", ret_label);
+      fprintf (file, "\tlda    .Li960R%d,g14\n", ret_label);
       fprintf (file, "%s.lf:\n", (name[0] == '*' ? &name[1] : name));
       fprintf (file, "\tmov    g14,g%d\n", i960_leaf_ret_reg);
 
@@ -1611,7 +1611,7 @@ i960_output_function_epilogue (file, size)
 {
   if (i960_leaf_ret_reg >= 0)
     {
-      fprintf (file, "Li960R%d:	ret\n", ret_label);
+      fprintf (file, ".Li960R%d:	ret\n", ret_label);
       return;
     }
 
@@ -1641,11 +1641,11 @@ i960_output_function_epilogue (file, size)
 	    }
 	  break;
 	}
-      fprintf (file, "Li960R%d:	ret\n", ret_label);
+      fprintf (file, ".Li960R%d:	ret\n", ret_label);
       return;
     }
 
-  fprintf (file, "Li960R%d:\n", ret_label);
+  fprintf (file, ".Li960R%d:\n", ret_label);
 
   fprintf (file, "\t#EPILOGUE#\n");
 
@@ -1730,7 +1730,7 @@ i960_output_ret_insn (insn)
       if (! TARGET_CODE_ALIGN && next_real_insn (insn) == 0)
 	return "";
 
-      sprintf (lbuf, "b	Li960R%d", ret_label);
+      sprintf (lbuf, "b	.Li960R%d", ret_label);
       return lbuf;
     }
 
