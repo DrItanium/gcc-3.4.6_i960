@@ -624,7 +624,7 @@ i960_output_move_double (rtx dst, rtx src) {
         }
     } else if (GET_CODE (dst) == REG
             && GET_CODE (src) == CONST_INT
-            && CONST_OK_FOR_LETTER_P(INTVAL (src), 'I')) {
+            && CONST_OK_FOR_LETTER_P(INTVAL(src), 'I')) {
         if (REGNO (dst) & 1) {
             return "mov	%1,%0\n\tmov	0,%D0 #m5.0";
         } else {
@@ -705,7 +705,7 @@ i960_output_move_quad (rtx dst, rtx src)
       }
   } else if (GET_CODE (dst) == REG
           && GET_CODE (src) == CONST_INT
-          && CONST_OK_FOR_LETTER_P (INTVAL (src), 'I')) {
+          && CONST_OK_FOR_LETTER_P(INTVAL(src), 'I')) {
       if (REGNO (dst) & 3) {
           return "mov	%1,%0\n\tmov	0,%D0\n\tmov	0,%E0\n\tmov	0,%F0";
       } else {
@@ -974,9 +974,8 @@ i960_output_ldconst (rtx dst, rtx src)
    
      and any 2 instruction cases that might be worthwhile  */
 
-    return "ldconst %1, %0 #ldconst 80";
-  //output_asm_insn ("ldconst	%1,%0 # ldconst 80", operands);
-  //return "";
+    output_asm_insn ("ldconst	%1,%0 # ldconst 80", operands);
+    return "";
 }
 
 /* Determine if there is an opportunity for a bypass optimization.

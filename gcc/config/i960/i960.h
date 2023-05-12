@@ -690,11 +690,11 @@ enum reg_class { NO_REGS, GLOBAL_REGS, LOCAL_REGS, LOCAL_OR_GLOBAL_REGS,
    	'J' means literal 0
 	'K' means 0..-31.  */
 
-#define CONST_OK_FOR_LETTER_P(VALUE, C)  				\
-  ((C) == 'I' ? (((unsigned) (VALUE)) <= 31)				\
-   : (C) == 'J' ? ((VALUE) == 0)					\
-   : (C) == 'K' ? ((VALUE) >= -31 && (VALUE) <= 0)			\
-   : (C) == 'M' ? ((VALUE) >= -32 && (VALUE) <= 0)			\
+#define CONST_OK_FOR_LETTER_P(VALUE, C)  \
+  ((C) == 'I' ? ((VALUE) >= 0 && (VALUE) <= 31) \
+   : (C) == 'J' ? ((VALUE) == 0) \
+   : (C) == 'K' ? ((VALUE) >= -31 && (VALUE) <= 0) \
+   : (C) == 'M' ? ((VALUE) >= -32 && (VALUE) <= 0) \
    : 0)
 
 /* Similar, but for floating constants, and defining letters G and H.
@@ -1213,7 +1213,7 @@ extern struct rtx_def *i960_compare_op0, *i960_compare_op1;
 /* The prefix to add to user-visible assembler symbols.  */
 
 #define USER_LABEL_PREFIX "_"
-#define LOCAL_LABEL_PREFIX ".L"
+#define LOCAL_LABEL_PREFIX "."
 
 /* This is how to store into the string LABEL
    the symbol_ref name of an internal numbered label where
