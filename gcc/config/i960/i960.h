@@ -1213,7 +1213,7 @@ extern struct rtx_def *i960_compare_op0, *i960_compare_op1;
 /* The prefix to add to user-visible assembler symbols.  */
 
 #define USER_LABEL_PREFIX "_"
-#define LOCAL_LABEL_PREFIX "."
+#define LOCAL_LABEL_PREFIX ".L"
 
 /* This is how to store into the string LABEL
    the symbol_ref name of an internal numbered label where
